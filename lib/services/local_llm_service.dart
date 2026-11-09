@@ -681,8 +681,7 @@ class _PhoneFolderExplorerSheetState extends State<PhoneFolderExplorerSheet> {
                                   ),
                                 ),
                                 subtitle: Text(
-                                  'المسار: $modelPath
-اضغط هنا لربط النموذج وتفعيله فوراً ✓',
+                                  'المسار: $modelPath — اضغط هنا لربط النموذج وتفعيله فوراً ✓',
                                   style: const TextStyle(
                                     fontSize: 11.5,
                                     color: Color(0xFF10B981),
