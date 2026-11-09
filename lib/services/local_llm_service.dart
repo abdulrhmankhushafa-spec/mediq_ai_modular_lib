@@ -49,8 +49,9 @@ class GgufModelInfo {
   }
 }
 
-/// خدمة اختيار وتشغيل النموذج اللغوي المحلي (GGUF) مباشرة من ذاكرة الهاتف
-/// متوافقة مع قيود التخزين المعزول في أندرويد 11-15 (Scoped Storage) بدون أي حزم خارجية.
+/// خدمة اختيار وتشغيل النموذج اللغوي المحلي (Qwen2.5-3B-Instruct GGUF)
+/// عبر محرك الاستدلال C++ (llama.cpp) وواجهة استدعاء الدوال الأجنبية (Dart FFI)
+/// مبنية بالكامل بمكتبات Flutter و Dart القياسية لضمان عدم حدوث أي أخطاء بناء.
 class LocalLlmService {
   static final LocalLlmService instance = LocalLlmService._internal();
   LocalLlmService._internal();
@@ -71,7 +72,6 @@ class LocalLlmService {
   GgufModelInfo? modelInfo;
   String statusMessage = 'لم يتم اختيار ملف النموذج (.gguf) من الهاتف بعد';
 
-  /// مسار ملف الإعدادات المحلي لحفظ مسار النموذج المختار
   File get _configFile =>
       File('${Directory.systemTemp.path}/mediq_ai_model_config.json');
 
@@ -111,10 +111,16 @@ class LocalLlmService {
     } catch (_) {}
   }
 
-  /// اختيار ملف النموذج عبر منتقي ملفات النظام الأصلي (SAF) أو المتصفح المدمج
+  /// طلب صلاحية الوصول لجميع الملفات في أندرويد 11+ لتمكين محرك C++ من قراءة ملف GGUF مباشرة من Download
+  Future<void> requestAndroidAllFilesPermission() async {
+    try {
+      await _nativePickerChannel.invokeMethod('requestAllFilesAccess');
+    } catch (_) {}
+  }
+
+  /// اختيار ملف النموذج عبر منتقي ملفات النظام الأصلي أو المتصفح المدمج
   Future<Map<String, dynamic>> pickModelWithNativeOrInAppBrowser(
       BuildContext context) async {
-    // 1. محاولة فتح منتقي ملفات أندرويد الأصلي (Intent.ACTION_OPEN_DOCUMENT) إن توفر
     try {
       final Map<dynamic, dynamic>? nativeRes = await _nativePickerChannel
           .invokeMethod<Map<dynamic, dynamic>>('pickGgufFileInfo');
@@ -148,15 +154,12 @@ class LocalLlmService {
               'تم ربط وفحص النموذج بنجاح: ${modelInfo!.fileName} (${modelInfo!.formattedSize} • GGUF v$ver • $tensors Tensors)',
         };
       }
-    } catch (_) {
-      // في حال عدم وجود القناة الأصلية، ننتقل إلى نافذة اختيار النموذج المدمجة
-    }
+    } catch (_) {}
 
     if (!context.mounted) {
       return {'success': false, 'message': 'الواجهة غير نشطة'};
     }
 
-    // 2. فتح نافذة متصفح مجلدات الهاتف المدمج
     final String? selectedPath = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -209,7 +212,7 @@ class LocalLlmService {
     return false;
   }
 
-  /// تحميل وفحص ملف GGUF من المسار المحدد، مع معالجة ذكية لقيود Scoped Storage (errno = 13) في أندرويد 11+
+  /// تحميل وفحص ملف GGUF من المسار المحدد، مع معالجة ذكية لقيود Scoped Storage (errno = 13)
   Future<bool> loadModelFromPath(String filePath,
       {bool saveConfig = true}) async {
     final cleanPath = filePath.trim();
@@ -239,11 +242,8 @@ class LocalLlmService {
         final stat = await file.stat();
         detectedSize = stat.size;
       }
-    } catch (_) {
-      // في بعض إصدارات أندرويد قد يرمي exists/stat استثناء صلاحيات رغم وجود الملف
-    }
+    } catch (_) {}
 
-    // المحاولة الأولى: القراءة الثنائية المباشرة لأول 24 بايت من ترويسة GGUF
     try {
       final raf = await file.open(mode: FileMode.read);
       final fileLen = await raf.length();
@@ -263,7 +263,8 @@ class LocalLlmService {
         modelInfo = GgufModelInfo(
           fileName: fileName,
           filePath: cleanPath,
-          fileSizeBytes: fileLen > 0 ? fileLen : _estimateModelSizeBytes(fileName),
+          fileSizeBytes:
+              fileLen > 0 ? fileLen : _estimateModelSizeBytes(fileName),
           ggufVersion: version,
           tensorCount: tensorCount,
           metadataKvCount: kvCount,
@@ -283,8 +284,6 @@ class LocalLlmService {
         return false;
       }
     } on FileSystemException catch (e) {
-      // معالجة قيد أندرويد 11+ (OS Error: Permission denied, errno = 13)
-      // عندما يكون ملف .gguf موجوداً داخل /storage/emulated/0/Download ويمنع Scoped Storage فتحه المباشر:
       final isPermissionDenied = e.osError?.errorCode == 13 ||
           e.message.toLowerCase().contains('permission denied') ||
           e.toString().contains('errno = 13');
@@ -325,14 +324,12 @@ class LocalLlmService {
     }
   }
 
-  /// تقدير حجم النموذج القياسي في حال حجب نظام أندرويد لقراءة الحجم المباشر عبر Scoped Storage
   static int _estimateModelSizeBytes(String fileName) {
     final lower = fileName.toLowerCase();
     if (lower.contains('0.5b')) return (398 * 1024 * 1024);
     if (lower.contains('1.5b')) return (986 * 1024 * 1024);
     if (lower.contains('q3')) return (1590 * 1024 * 1024);
     if (lower.contains('7b')) return (4360 * 1024 * 1024);
-    // الحجم القياسي لنموذج qwen2.5-3b-instruct-q4_k_m.gguf هو 1.93 GB
     return (1930 * 1024 * 1024);
   }
 
@@ -340,7 +337,6 @@ class LocalLlmService {
     final lower = fileName.toLowerCase();
     if (lower.contains('0.5b')) return 290;
     if (lower.contains('1.5b')) return 338;
-    // عدد المصفوفات القياسي في Qwen2.5-3B-Instruct (36 طبقة) هو 291 مصفوفة
     return 291;
   }
 
@@ -386,9 +382,10 @@ class LocalLlmService {
     return '''<|im_start|>system
 أنت "MEDIQ AI"، مساعد تثقيف طبي ذكي يعمل محلياً دون اتصال بالإنترنت.
 التزم بالقواعد الصارمة التالية في كل إجابة:
-1. اعتمد حصرياً على "السياق الطبي الموثق" المرفق أدناه في صياغة إجابتك باللغة العربية الفصحى المبسطة.
-2. لا تقم بتأليف أو إضافة أي معلومات طبية خارج السياق المرفق (منع الهلوسة اللغوية).
-3. لا تقم بتشخيص الأمراض بشكل جازم، ولا تصف أدوية أو جرعات علاجية فردية.
+1. افهم مقصد المستخدم بدقة؛ إذا كان يحييك أو يسألك عن سبب خطأ سابق أو يطلب توضيحاً، أجب بلباقة ووضوح.
+2. في الأسئلة الطبية، اعتمد حصرياً على "السياق الطبي الموثق" المرفق أدناه في صياغة إجابتك باللغة العربية الفصحى المبسطة.
+3. لا تقم بتأليف أو إضافة أي معلومات طبية خارج السياق المرفق (منع الهلوسة اللغوية).
+4. لا تقم بتشخيص الأمراض بشكل جازم، ولا تصف أدوية أو جرعات علاجية فردية.
 
 السياق الطبي الموثق المسترجع من قاعدة المعرفة:
 $contextBuffer<|im_end|>
@@ -398,7 +395,7 @@ $userQuery<|im_end|>
 ''';
   }
 
-  /// تشغيل الاستدلال المحلي مع النموذج المختار من الهاتف
+  /// تشغيل الاستدلال الفعلي عبر محرك C++ (llama.cpp FFI) داخل Isolate مستقل
   Future<String?> generateGroundedResponse({
     required String userQuery,
     required List<Map<String, dynamic>> retrievedChunks,
@@ -417,39 +414,97 @@ $userQuery<|im_end|>
   }
 }
 
+// ============================================================================
+// طبقة الربط الثنائي المباشر (Pure Dart FFI Bridge for llama.cpp C/C++ Engine)
+// تعمل بدون أي حزم خارجية باستخدام malloc/free القياسية في نظام التشغيل
+// ============================================================================
+
+typedef _MallocC = ffi.Pointer<ffi.Uint8> Function(ffi.IntPtr size);
+typedef _MallocDart = ffi.Pointer<ffi.Uint8> Function(int size);
+
+typedef _FreeC = ffi.Void Function(ffi.Pointer<ffi.Uint8> ptr);
+typedef _FreeDart = void Function(ffi.Pointer<ffi.Uint8> ptr);
+
+typedef _MediqLlamaGenerateC = ffi.Pointer<ffi.Uint8> Function(
+  ffi.Pointer<ffi.Uint8> modelPath,
+  ffi.Pointer<ffi.Uint8> prompt,
+  ffi.Int32 maxTokens,
+);
+typedef _MediqLlamaGenerateDart = ffi.Pointer<ffi.Uint8> Function(
+  ffi.Pointer<ffi.Uint8> modelPath,
+  ffi.Pointer<ffi.Uint8> prompt,
+  int maxTokens,
+);
+
+ffi.Pointer<ffi.Uint8> _stringToNativeUtf8(
+    String str, _MallocDart mallocFn) {
+  final units = utf8.encode(str);
+  final ptr = mallocFn(units.length + 1);
+  final byteList = ptr.asTypedList(units.length + 1);
+  byteList.setAll(0, units);
+  byteList[units.length] = 0;
+  return ptr;
+}
+
+String _nativeUtf8ToString(ffi.Pointer<ffi.Uint8> ptr) {
+  if (ptr == ffi.nullptr) return '';
+  int length = 0;
+  while (ptr[length] != 0) {
+    length++;
+    if (length > 65536) break;
+  }
+  if (length == 0) return '';
+  return utf8.decode(ptr.asTypedList(length), allowMalformed: true);
+}
+
 /// دالة الاستدلال داخل Isolate مستقل عبر Dart FFI لمحرك llama.cpp
 Future<String?> _runNativeLlamaCppIsolate(
     String modelPath, String prompt) async {
   try {
-    ffi.DynamicLibrary? lib;
-    if (Platform.isAndroid || Platform.isLinux) {
-      lib = ffi.DynamicLibrary.open('libllama.so');
-    } else if (Platform.isWindows) {
-      lib = ffi.DynamicLibrary.open('llama.dll');
-    } else if (Platform.isMacOS || Platform.isIOS) {
-      lib = ffi.DynamicLibrary.process();
+    final stdlib = ffi.DynamicLibrary.process();
+    final mallocFn = stdlib.lookupFunction<_MallocC, _MallocDart>('malloc');
+    final freeFn = stdlib.lookupFunction<_FreeC, _FreeDart>('free');
+
+    ffi.DynamicLibrary? bridgeLib;
+    final candidateLibs = Platform.isAndroid
+        ? ['libmediq_llama.so', 'libllama.so']
+        : Platform.isWindows
+            ? ['mediq_llama.dll', 'llama.dll']
+            : ['libmediq_llama.so', 'libllama.dylib'];
+
+    for (final libName in candidateLibs) {
+      try {
+        bridgeLib = ffi.DynamicLibrary.open(libName);
+        break;
+      } catch (_) {}
     }
 
-    if (lib == null) return null;
+    if (bridgeLib == null) return null;
 
-    final backendInit =
-        lib.lookupFunction<ffi.Void Function(), void Function()>(
-      'llama_backend_init',
+    final generateFn = bridgeLib
+        .lookupFunction<_MediqLlamaGenerateC, _MediqLlamaGenerateDart>(
+      'mediq_llama_generate',
     );
-    backendInit();
 
-    final backendFree =
-        lib.lookupFunction<ffi.Void Function(), void Function()>(
-      'llama_backend_free',
-    );
-    backendFree();
-    return null;
+    final pathPtr = _stringToNativeUtf8(modelPath, mallocFn);
+    final promptPtr = _stringToNativeUtf8(prompt, mallocFn);
+
+    try {
+      final resPtr = generateFn(pathPtr, promptPtr, 384);
+      final output = _nativeUtf8ToString(resPtr)
+          .replaceAll('<|im_end|>', '')
+          .trim();
+      return output.isNotEmpty ? output : null;
+    } finally {
+      freeFn(pathPtr);
+      freeFn(promptPtr);
+    }
   } catch (_) {
     return null;
   }
 }
 
-/// نافذة متصفح مجلدات الهاتف المدمج داخل التطبيق (متوافقة مع Scoped Storage في أندرويد 11+)
+/// نافذة متصفح مجلدات الهاتف المدمج داخل التطبيق
 class PhoneFolderExplorerSheet extends StatefulWidget {
   const PhoneFolderExplorerSheet({super.key});
 
@@ -493,7 +548,6 @@ class _PhoneFolderExplorerSheetState extends State<PhoneFolderExplorerSheet> {
       _discoveredModelPaths = [];
     });
 
-    // فحص وجود ملفات GGUF المعروفة داخل المجلد الحالي حتى لو كان استعراض المجلد الكامل مقيداً في أندرويد 11+
     final List<String> foundModels = [];
     for (final name in LocalLlmService.knownModelNames) {
       final candidate = '$path/$name';
@@ -524,7 +578,6 @@ class _PhoneFolderExplorerSheetState extends State<PhoneFolderExplorerSheet> {
         _discoveredModelPaths = foundModels;
       });
     } catch (_) {
-      // في حال حجب listSync() بواسطة Scoped Storage، نعرض الملفات المكتشفة والخيارات الجاهزة في المجلد
       if (foundModels.isEmpty && path.contains('Download')) {
         foundModels.add(
             '/storage/emulated/0/Download/qwen2.5-3b-instruct-q4_k_m.gguf');

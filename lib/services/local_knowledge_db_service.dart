@@ -5,12 +5,21 @@ class LocalKnowledgeDbService {
   static final LocalKnowledgeDbService instance = LocalKnowledgeDbService._internal();
   LocalKnowledgeDbService._internal();
 
+  /// قائمة الكلمات الشائعة والضمائر وحروف الجر (Arabic Stop Words) لتجنب التطابق العشوائي
+  static const Set<String> _arabicStopWords = {
+    'انت', 'انتم', 'انتن', 'انا', 'نحن', 'هو', 'هي', 'هم', 'هن',
+    'في', 'من', 'الى', 'إلى', 'على', 'عن', 'مع', 'حتى', 'بين',
+    'ما', 'ماذا', 'لماذا', 'كيف', 'اين', 'أين', 'متى', 'كم', 'هل',
+    'هذا', 'هذه', 'هؤلاء', 'ذلك', 'تلك', 'الذي', 'التي', 'الذين',
+    'كان', 'يكون', 'اصبح', 'صار', 'ليس', 'غير', 'كل', 'بعض',
+  };
+
   static final List<Map<String, dynamic>> _knowledgeChunks = [
     {
       'id': 'chunk_hypertension',
       'category': 'القلب والأوعية الدموية',
       'title': 'أعراض ارتفاع ضغط الدم والوقاية منه',
-      'keywords': ['ضغط الدم', 'ارتفاع الضغط', 'ضغط', 'القاتل الصامت', 'hypertension', 'blood pressure'],
+      'keywords': ['ضغط الدم', 'ارتفاع الضغط', 'الضغط العالي', 'ضغط', 'القاتل الصامت', 'hypertension', 'blood pressure'],
       'source': 'الأدلة الإرشادية السريرية للأمراض غير السارية - منظمة الصحة العالمية (WHO EMRO) والدليل العلاجي الوطني',
       'version': '2026.1',
       'answerIntro': 'ارتفاع ضغط الدم (Hypertension) هو حالة طبية مزمنة يرتفع فيها ضغط الدم في الشرايين، وغالباً ما يُسمى "القاتل الصامت" لأنه قد لا يُظهر أعراضاً واضحة في مراحله المبكرة:',
@@ -27,7 +36,7 @@ class LocalKnowledgeDbService {
       'id': 'chunk_anemia',
       'category': 'أمراض الدم',
       'title': 'أعراض فقر الدم (الأنيميا) ونقص الحديد',
-      'keywords': ['فقر الدم', 'أنيميا', 'انيميا', 'الحديد', 'شحوب', 'تعب', 'هيموجلوبين', 'anemia', 'cbc', 'iron'],
+      'keywords': ['فقر الدم', 'فقر دم', 'أنيميا', 'انيميا', 'الحديد', 'نقص الحديد', 'شحوب', 'هيموجلوبين', 'anemia', 'cbc', 'iron'],
       'source': 'أدلة الرعاية الصحية الأولية والتثقيف الصحي - وزارة الصحة العامة والسكان ومنظمة الصحة العالمية (WHO)',
       'version': '2026.1',
       'answerIntro': 'فقر الدم (Anemia) هو انخفاض في عدد خلايا الدم الحمراء السليمة أو مستوى الهيموجلوبين المسؤول عن نقل الأكسجين إلى أنسجة الجسم:',
@@ -44,7 +53,7 @@ class LocalKnowledgeDbService {
       'id': 'chunk_diabetes',
       'category': 'الغدد الصماء والسكري',
       'title': 'أعراض مرض السكري وطرق الوقاية والمتابعة',
-      'keywords': ['السكري', 'سكر الدم', 'عطش', 'تبول', 'انسولين', 'تراكمي', 'diabetes', 'hba1c', 'glucose'],
+      'keywords': ['السكري', 'مرض السكري', 'سكر الدم', 'ارتفاع السكر', 'عطش شديد', 'كثرة التبول', 'انسولين', 'تراكمي', 'diabetes', 'hba1c', 'glucose'],
       'source': 'الأدلة الإرشادية السريرية للأمراض غير السارية - منظمة الصحة العالمية (WHO EMRO)',
       'version': '2026.1',
       'answerIntro': 'مرض السكري (Diabetes Mellitus) هو اضطراب استقلابي مزمن يتسم بارتفاع مستوى الجلوكوز في الدم نتيجة نقص إفراز الأنسولين أو ضعف استجابة الخلايا له:',
@@ -60,8 +69,8 @@ class LocalKnowledgeDbService {
     {
       'id': 'chunk_gastritis',
       'category': 'الجهاز الهضمي',
-      'title': 'التهاب المعدة وجرثومة المعدة والقولون',
-      'keywords': ['التهاب المعدة', 'حموضة', 'حرقان', 'جرثومة المعدة', 'معدة', 'قرحة', 'قولون', 'انتفاخ', 'بطن', 'إسهال', 'إمساك', 'gastritis', 'pylori', 'ibs'],
+      'title': 'التهاب المعدة وجرثومة المعدة والقولون العصبي',
+      'keywords': ['التهاب المعدة', 'جرثومة المعدة', 'حموضة المعدة', 'حرقان المعدة', 'قرحة المعدة', 'القولون العصبي', 'عسر الهضم', 'gastritis', 'pylori', 'ibs'],
       'source': 'الدليل العلاجي الوطني وأدلة الرعاية الصحية الأولية - وزارة الصحة العامة والسكان',
       'version': '2026.1',
       'answerIntro': 'اضطرابات الجهاز الهضمي والتهاب المعدة (Gastritis) تحدث نتيجة تهيج بطانة المعدة أو الأمعاء بفعل عدة عوامل:',
@@ -78,7 +87,7 @@ class LocalKnowledgeDbService {
       'id': 'chunk_immunity_vitd',
       'category': 'المناعة والفيتامينات',
       'title': 'الجهاز المناعي وأهمية فيتامين D والفيتامينات للجسم',
-      'keywords': ['فيتامين D', 'فيتامين د', 'فيتامين', 'المناعة', 'الجهاز المناعي', 'عظام', 'كالسيوم', 'vitamin', 'immunity'],
+      'keywords': ['فيتامين d', 'فيتامين د', 'فيتامينات', 'المناعة', 'الجهاز المناعي', 'تقوية المناعة', 'نقص فيتامين', 'عظام', 'كالسيوم', 'vitamin', 'immunity'],
       'source': 'أدلة التثقيف الصحي والتغذية السريرية المعتمدة - منظمة الصحة العالمية (WHO)',
       'version': '2026.1',
       'answerIntro': 'يعمل الجهاز المناعي كخط دفاع متكامل لحماية الجسم من الميكروبات والعدوى، ويلعب فيتامين D والعناصر الغذائية الدقيقة دوراً محورياً في دعمه:',
@@ -95,7 +104,7 @@ class LocalKnowledgeDbService {
       'id': 'chunk_first_aid_syncope',
       'category': 'الإسعافات الأولية',
       'title': 'الإسعافات الأولية لحالات الإغماء وانخفاض السكر والحروق',
-      'keywords': ['إسعافات أولية', 'اسعافات', 'إغماء', 'اغماء', 'هبوط السكر', 'انخفاض السكر', 'دوخة', 'حروق', 'جروح', 'نزيف بسيط', 'first aid'],
+      'keywords': ['إسعافات أولية', 'اسعافات اولية', 'إغماء', 'اغماء', 'هبوط السكر', 'انخفاض السكر', 'حروق', 'حرق', 'جروح', 'first aid'],
       'source': 'دليل الوقاية والإسعافات الأولية المجتمعية - وزارة الصحة العامة والسكان ومنظمة الصحة العالمية',
       'version': '2026.1',
       'answerIntro': 'الإسعاف الأولي السريع والآمن لحالات الإغماء البسيط أو هبوط السكر والإصابات المنزلية يساعد في منع المضاعفات:',
@@ -112,7 +121,7 @@ class LocalKnowledgeDbService {
       'id': 'chunk_checkup_labs',
       'category': 'الفحوصات والمصطلحات الطبية',
       'title': 'الفحص الدوري الشامل والمصطلحات المخبرية الشائعة',
-      'keywords': ['الفحص الدوري', 'فحوصات', 'تحاليل', 'تحليل', 'مصطلح طبي', 'cbc', 'lipid', 'وظائف الكلى', 'وظائف الكبد', 'crp', 'esr'],
+      'keywords': ['الفحص الدوري', 'فحوصات دورية', 'تحاليل طبية', 'تحليل دم', 'مصطلح طبي', 'مصطلحات طبية', 'cbc', 'lipid', 'وظائف الكلى', 'وظائف الكبد'],
       'source': 'أدلة الرعاية الصحية الأولية والتثقيف الصحي المجتمعي',
       'version': '2026.1',
       'answerIntro': 'الفحص الطبي الدوري الشامل يتضمن حزمة من التقييمات السريرية والتحاليل المخبرية الأساسية للكشف المبكر عن الاضطرابات الصحية:',
@@ -129,7 +138,7 @@ class LocalKnowledgeDbService {
       'id': 'chunk_respiratory_flu',
       'category': 'الجهاز التنفسي والعدوى',
       'title': 'نزلات البرد والإنفلونزا والتهاب الحلق واللوزتين والسعال',
-      'keywords': ['برد', 'زكام', 'انفلونزا', 'إنفلونزا', 'سعال', 'كحة', 'التهاب الحلق', 'لوزتين', 'حرارة', 'حمى', 'بلغم', 'ربو', 'حساسية'],
+      'keywords': ['نزلات البرد', 'نزلة برد', 'زكام', 'انفلونزا', 'إنفلونزا', 'سعال', 'كحة', 'التهاب الحلق', 'احتقان الحلق', 'اللوزتين', 'بلغم'],
       'source': 'الدليل العلاجي الوطني لأمراض الجهاز التنفسي - وزارة الصحة ومنظمة الصحة العالمية (WHO)',
       'version': '2026.1',
       'answerIntro': 'التهابات الجهاز التنفسي العلوي (مثل نزلات البرد، الإنفلونزا، والتهاب الحلق) غالباً ما تكون فيروسية المنشأ وتتحسن بالرعاية الداعمة:',
@@ -146,7 +155,7 @@ class LocalKnowledgeDbService {
       'id': 'chunk_headache_migraine',
       'category': 'الأعصاب والصداع',
       'title': 'أسباب الصداع التوتري والصداع النصفي (الشقيقة)',
-      'keywords': ['صداع', 'شقيقة', 'الصداع النصفي', 'ألم الرأس', 'وجع راس', 'ارهاق', 'سهر', 'migraine', 'headache'],
+      'keywords': ['صداع', 'الصداع', 'شقيقة', 'الشقيقة', 'الصداع النصفي', 'ألم الرأس', 'الم الراس', 'وجع راس', 'migraine', 'headache'],
       'source': 'الأدلة الإرشادية السريرية للاضطرابات العصبية الشائعة - منظمة الصحة العالمية (WHO)',
       'version': '2026.1',
       'answerIntro': 'الصداع من أكثر الأعراض شيوعاً، وينقسم في معظمه إلى صداع أولي (مثل الصداع التوتري والشقيقة) أو صداع ثانوي مرتبط بأسباب أخرى:',
@@ -163,10 +172,19 @@ class LocalKnowledgeDbService {
 
   List<Map<String, dynamic>> searchHybrid(String query, {int topK = 2}) {
     final normalizedQuery = _normalizeArabic(query);
-    final queryTokens = normalizedQuery
+    final rawTokens = normalizedQuery
         .split(RegExp(r'\s+'))
         .where((t) => t.length >= 2)
         .toList();
+
+    // استبعاد الكلمات الشائعة والضمائر لتجنب التطابق العشوائي مع كلمات مثل "انت"
+    final queryTokens = rawTokens
+        .where((t) => !_arabicStopWords.contains(t))
+        .toList();
+
+    if (queryTokens.isEmpty) {
+      return [];
+    }
 
     final List<MapEntry<Map<String, dynamic>, double>> lexicalScores = [];
     final List<MapEntry<Map<String, dynamic>, double>> semanticScores = [];
@@ -180,54 +198,57 @@ class LocalKnowledgeDbService {
           .map((k) => _normalizeArabic(k.toString()))
           .toList();
 
+      final docWords = '$titleNorm $categoryNorm ${keywords.join(" ")} $introNorm $bulletsNorm'
+          .split(RegExp(r'\s+'))
+          .toSet();
+
+      // 1. التطابق النصي الدقيق على مستوى الكلمة الكاملة
       double lexScore = 0.0;
       for (final kw in keywords) {
         if (normalizedQuery.contains(kw)) {
-          lexScore += 5.0;
+          lexScore += 10.0;
         }
       }
       for (final token in queryTokens) {
-        if (titleNorm.contains(token)) lexScore += 3.0;
-        if (keywords.any((k) => k.contains(token))) lexScore += 2.5;
-        if (introNorm.contains(token) || bulletsNorm.contains(token)) {
-          lexScore += 1.0;
+        if (docWords.contains(token)) {
+          lexScore += 4.0;
         }
       }
       lexicalScores.add(MapEntry(chunk, lexScore));
 
-      final docText =
-          '$titleNorm $categoryNorm ${keywords.join(" ")} $introNorm $bulletsNorm';
-      final semScore = _computeSemanticSimilarity(normalizedQuery, docText);
+      // 2. التقارب الدلالي
+      final docText = '$titleNorm $categoryNorm ${keywords.join(" ")} $introNorm $bulletsNorm';
+      final semScore = _computeSemanticSimilarity(queryTokens.join(' '), docText);
       semanticScores.add(MapEntry(chunk, semScore));
     }
 
     lexicalScores.sort((a, b) => b.value.compareTo(a.value));
     semanticScores.sort((a, b) => b.value.compareTo(a.value));
 
-    // إذا لم يكن هناك تطابق مباشر قوي، نعيد النتيجة فقط إذا تجاوزت الحد الأدنى
-    if (lexicalScores.first.value == 0.0 && semanticScores.first.value < 0.08) {
+    // إذا لم يتحقق حد أدنى من التطابق، لا نرجع نتائج عشوائية
+    if (lexicalScores.first.value < 4.0 && semanticScores.first.value < 0.18) {
       return [];
     }
 
     const int k = 60;
-    const double wLex = 0.65;
-    const double wSem = 0.35;
+    const double wLex = 0.70;
+    const double wSem = 0.30;
 
     final Map<String, double> rrfScores = {};
     final Map<String, Map<String, dynamic>> chunkById = {};
 
     for (int rank = 0; rank < lexicalScores.length; rank++) {
       final item = lexicalScores[rank];
+      if (item.value <= 0) continue;
       final id = item.key['id'].toString();
       chunkById[id] = item.key;
-      final bonus = item.value > 0
-          ? (wLex / (k + rank + 1)) + (item.value * 0.01)
-          : 0.0;
+      final bonus = (wLex / (k + rank + 1)) + (item.value * 0.02);
       rrfScores[id] = (rrfScores[id] ?? 0.0) + bonus;
     }
 
     for (int rank = 0; rank < semanticScores.length; rank++) {
       final item = semanticScores[rank];
+      if (item.value < 0.10) continue;
       final id = item.key['id'].toString();
       chunkById[id] = item.key;
       rrfScores[id] =

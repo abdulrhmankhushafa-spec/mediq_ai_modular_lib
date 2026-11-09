@@ -1,5 +1,5 @@
 name: mediq_ai
-description: MEDIQ AI - Offline Medical Assistant
+description: MEDIQ AI - Offline Medical Assistant (Native llama.cpp FFI Engine)
 publish_to: 'none'
 version: 1.0.0+1
 
