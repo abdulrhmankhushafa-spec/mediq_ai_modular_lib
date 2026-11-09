@@ -86,11 +86,14 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _showAttachmentSheet(String type) {
+  // استخلاص النصوص المطبوعة من الصور الطبية عبر OCR فقط (كما في ص 25 و 31 من الخطة)
+  void _scanMedicalTextOcr() {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('تم فتح معالج استيراد $type المحلي (Offline OCR / Document Ingestion)'),
-        duration: const Duration(seconds: 2),
+      const SnackBar(
+        content: Text(
+          'قارئ النصوص الطبية (OCR): مخصص لاستخلاص النصوص المطبوعة من التقارير والوصفات لتحليلها في المحادثة.',
+        ),
+        duration: Duration(seconds: 3),
       ),
     );
   }
@@ -160,11 +163,11 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                   const SizedBox(width: 5),
-                  Flexible(
+                  const Flexible(
                     child: Text(
-                      'يعمل محلياً • ${appController.selectedModel}',
+                      'متصل محلياً بدون إنترنت',
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         color: Color(0xFF10B981),
                         fontWeight: FontWeight.w700,
@@ -222,7 +225,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'مساعد طبي محلي (Offline RAG): المعلومات للتثقيف الطبي العام ولا تغني عن استشارة الطبيب.',
+                    'مساعد طبي محلي: المعلومات المقدمة للتثقيف الصحي العام ولا تغني عن استشارة الطبيب المختص.',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -288,7 +291,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
-                                    'جاري البحث الهجين (SQLite FTS5 + Vector) وتوليد الإجابة محلياً...',
+                                    'جاري البحث في المراجع الطبية المعتمدة وصياغة الإجابة محلياً...',
                                     style: TextStyle(
                                       color: Color(0xFF0096C7),
                                       fontSize: 12.5,
@@ -540,7 +543,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final bullets = (data['bullets'] as List?)?.cast<String>() ?? [];
     final isEmergency = data['isEmergency'] == true;
     final importantNote = data['importantNote']?.toString() ?? '';
-    final source = data['source']?.toString() ?? 'قاعدة المعرفة الطبية المحلية (SQLite FTS5)';
+    final source =
+        data['source']?.toString() ?? 'المراجع الطبية المعتمدة في قاعدة المعرفة المحلية';
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -582,7 +586,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Text(
-                  'RAG المحلي',
+                  'معلومة موثقة',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -756,7 +760,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'المصدر المرجعي: $source',
+                    'المصدر الطبي: $source',
                     style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                   ),
                 ),
@@ -781,7 +785,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 icon: Icons.thumb_down_alt_outlined,
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('تم تسجيل ملاحظتك لتحسين دقة الاسترجاع')),
+                    const SnackBar(content: Text('تم تسجيل ملاحظتك لتحسين جودة الإجابات')),
                   );
                 },
               ),
@@ -843,6 +847,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  // شريط الإدخال السفلي (يقتصر على إدخال النص أو قراءة نص طبي مطبوع OCR دون رفع ملفات خارجية لقاعدة المعرفة)
   Widget _inputBar(bool isDark) {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
@@ -886,34 +891,23 @@ class _ChatScreenState extends State<ChatScreen> {
                     Row(
                       children: [
                         InkWell(
-                          onTap: () => _showAttachmentSheet('ملف طبي'),
+                          onTap: _scanMedicalTextOcr,
                           child: const Padding(
                             padding: EdgeInsets.all(4),
-                            child: Icon(Icons.attach_file_rounded, size: 18, color: Color(0xFF64748B)),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        InkWell(
-                          onTap: () => _showAttachmentSheet('صورة تحاليل / أشعة'),
-                          child: const Padding(
-                            padding: EdgeInsets.all(4),
-                            child: Icon(Icons.image_outlined, size: 18, color: Color(0xFF64748B)),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        InkWell(
-                          onTap: () => _showAttachmentSheet('تقرير PDF'),
-                          child: const Padding(
-                            padding: EdgeInsets.all(4),
-                            child: Icon(Icons.description_outlined, size: 18, color: Color(0xFF64748B)),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        InkWell(
-                          onTap: () => _showAttachmentSheet('إدخال صوتي'),
-                          child: const Padding(
-                            padding: EdgeInsets.all(4),
-                            child: Icon(Icons.mic_none_rounded, size: 18, color: Color(0xFF64748B)),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.document_scanner_outlined,
+                                  size: 17,
+                                  color: Color(0xFF64748B),
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'قراءة نص طبي من صورة (OCR)',
+                                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         const Spacer(),

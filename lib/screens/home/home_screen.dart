@@ -97,7 +97,7 @@ class HomeScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'يعمل محلياً',
+                              'يعمل محلياً دون إنترنت',
                               style: TextStyle(
                                 fontWeight: FontWeight.w800,
                                 fontSize: 13.5,
@@ -105,13 +105,13 @@ class HomeScreen extends StatelessWidget {
                               ),
                             ),
                             const Text(
-                              'المساعد المحلي متصل • قاعدة المعرفة جاهزة',
+                              'قاعدة المعرفة الطبية الموثقة جاهزة للاستخدام',
                               style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                             ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.dns_rounded, color: Color(0xFF0077B6), size: 22),
+                      const Icon(Icons.verified_user_outlined, color: Color(0xFF0077B6), size: 22),
                     ],
                   ),
                 ),
@@ -194,7 +194,7 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
 
-                // قائمة المحادثات
+                // قائمة المحادثات (مع دعم المفضلة وحذف المحادثة حسب المتطلب الوظيفي 7 ص 25)
                 ...chats.map((chat) {
                   final isFav = chat['isFavorite'] == true;
                   final accentColor = Color(chat['color'] as int? ?? 0xFF0077B6);
@@ -265,16 +265,33 @@ class HomeScreen extends StatelessWidget {
                                     color: Color(0xFF94A3B8),
                                   ),
                                 ),
-                                IconButton(
-                                  onPressed: () =>
-                                      appController.toggleFavorite(chat['id'].toString()),
-                                  icon: Icon(
-                                    isFav ? Icons.star_rounded : Icons.star_border_rounded,
-                                    color: isFav
-                                        ? const Color(0xFFFFB703)
-                                        : const Color(0xFF94A3B8),
-                                    size: 20,
-                                  ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: () =>
+                                          appController.toggleFavorite(chat['id'].toString()),
+                                      icon: Icon(
+                                        isFav ? Icons.star_rounded : Icons.star_border_rounded,
+                                        color: isFav
+                                            ? const Color(0xFFFFB703)
+                                            : const Color(0xFF94A3B8),
+                                        size: 20,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      visualDensity: VisualDensity.compact,
+                                      tooltip: 'حذف المحادثة',
+                                      onPressed: () =>
+                                          appController.deleteChat(chat['id'].toString()),
+                                      icon: const Icon(
+                                        Icons.delete_outline_rounded,
+                                        color: Color(0xFF94A3B8),
+                                        size: 19,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

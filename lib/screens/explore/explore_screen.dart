@@ -13,45 +13,46 @@ class ExploreScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // التصنيفات الموضوعية المهيكلة في الخطة (ص 27 - قسم 3.4.1)
     final topics = [
       {
-        'title': 'صحة القلب والشرايين',
-        'sub': 'ضغط الدم، ECG، والكوليسترول',
+        'title': 'الأمراض والحالات الشائعة',
+        'sub': 'تعريف الأمراض، أسبابها، وعوامل الخطورة',
         'icon': Icons.monitor_heart_rounded,
         'color': 0xFFE11D48,
         'q': 'ما هي أعراض ارتفاع ضغط الدم؟'
       },
       {
-        'title': 'السكري والغدد',
-        'sub': 'مستوى السكر، HbA1c، والأنسولين',
+        'title': 'الأعراض والعلامات التحذيرية',
+        'sub': 'الأعراض الشائعة والعلامات التي تستدعي طبيباً',
         'icon': Icons.water_drop_rounded,
         'color': 0xFF0096C7,
         'q': 'ما هي أعراض مرض السكري؟'
       },
       {
-        'title': 'المناعة والفيتامينات',
-        'sub': 'فيتامين D، الحديد، والمناعة',
+        'title': 'الأدوية العامة والفيتامينات',
+        'sub': 'معلومات تثقيفية عامة والتحذيرات الدوائية',
         'icon': Icons.shield_rounded,
         'color': 0xFF10B981,
-        'q': 'كيف يعمل الجهاز المناعي وما فائدة فيتامين D للجسم؟'
+        'q': 'ما فائدة فيتامين D للجسم؟'
       },
       {
-        'title': 'الجهاز الهضمي',
-        'sub': 'جرثومة المعدة والقولون',
-        'icon': Icons.restaurant_menu_rounded,
+        'title': 'الفحوصات الطبية الشائعة',
+        'sub': 'توضيح التحاليل الطبية ودواعي استخدامها',
+        'icon': Icons.biotech_rounded,
         'color': 0xFFF59E0B,
-        'q': 'ما هي أسباب التهاب المعدة؟'
+        'q': 'اشرح هذا المصطلح الطبي: الفحص الدوري الشامل وأهميته؟'
       },
       {
-        'title': 'أمراض الدم والأنيميا',
-        'sub': 'نقص الحديد، الهيموجلوبين، CBC',
+        'title': 'الوقاية والتثقيف الصحي',
+        'sub': 'طرق الوقاية والسلوكيات الصحية السليمة',
         'icon': Icons.bloodtype_rounded,
         'color': 0xFF8B5CF6,
         'q': 'ما هي أعراض فقر الدم؟'
       },
       {
-        'title': 'الإسعافات والسلامة الطبية',
-        'sub': 'التنبيهات الحرجة والطوارئ',
+        'title': 'الإسعافات الأولية والطوارئ',
+        'sub': 'إرشادات التعامل الأولي مع الحالات الطارئة',
         'icon': Icons.medical_services_rounded,
         'color': 0xFFEC4899,
         'q': 'ما هي الإسعافات الأولية لحالات الإغماء وانخفاض السكر؟'
@@ -70,7 +71,7 @@ class ExploreScreen extends StatelessWidget {
           onPressed: onOpenDrawer,
         ),
         title: Text(
-          'الموسوعة والبحث في المعلومة الطبية',
+          'الموسوعة والتصنيفات الطبية',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w900,
@@ -82,7 +83,7 @@ class ExploreScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
-            'اختر أي تخصص طبي لبدء استرجاع المعرفة وتوليد الإجابة عبر محرك (RAG) المحلي:',
+            'اختر أي تصنيف موضوعي لبدء البحث في قاعدة المعرفة الطبية المحلية:',
             style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 16),

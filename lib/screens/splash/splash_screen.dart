@@ -75,7 +75,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Your Medical AI Assistant',
+                  'Your Offline Medical AI Assistant',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 14,

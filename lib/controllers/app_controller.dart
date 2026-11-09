@@ -9,13 +9,9 @@ class AppController extends ChangeNotifier {
   String fontSizeLabel = 'متوسط';
   bool saveChats = true;
   bool notificationsEnabled = true;
-  bool isLocalServerConnected = true;
-  String selectedModel = 'Llama 3.1 (8B)';
-  String ggufModelPath = '/storage/emulated/0/Models/llama-3.1-8b-med-q4_k_m.gguf';
-  String knowledgeVersion = 'v2.4.0 (2026-10)';
-  String userName = 'مستخدم';
-  String userHandle = 'mediq_user';
-  String userRole = 'مستخدم محلي (Local User)'; // أو مدير المعرفة (Knowledge Admin)
+  bool isOfflineReady = true;
+  bool localLockEnabled = false;
+  String knowledgeVersion = 'الإصدار المعتمد 2026.1';
   String searchQuery = '';
   bool showFavoritesOnly = false;
 
@@ -64,27 +60,6 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void cycleModel() {
-    selectedModel = selectedModel.contains('Llama')
-        ? 'Meditron (7B) - GGUF'
-        : selectedModel.contains('Meditron')
-            ? 'Gemma 2 (9B) - Med'
-            : 'Llama 3.1 (8B)';
-    notifyListeners();
-  }
-
-  void toggleRole() {
-    userRole = userRole.contains('مدير')
-        ? 'مستخدم محلي (Local User)'
-        : 'مدير المعرفة (Knowledge Admin)';
-    notifyListeners();
-  }
-
-  void toggleServerStatus() {
-    isLocalServerConnected = !isLocalServerConnected;
-    notifyListeners();
-  }
-
   void toggleSaveChats(bool v) {
     saveChats = v;
     notifyListeners();
@@ -95,12 +70,27 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void toggleLocalLock(bool v) {
+    localLockEnabled = v;
+    notifyListeners();
+  }
+
   void toggleFavorite(String id) {
     final idx = chats.indexWhere((c) => c['id'] == id);
     if (idx != -1) {
       chats[idx]['isFavorite'] = !(chats[idx]['isFavorite'] ?? false);
       notifyListeners();
     }
+  }
+
+  void deleteChat(String id) {
+    chats.removeWhere((c) => c['id'] == id);
+    notifyListeners();
+  }
+
+  void clearAllChats() {
+    chats.clear();
+    notifyListeners();
   }
 
   void setSearchQuery(String q) {
@@ -123,22 +113,9 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addKnowledgeDocument(String title, String chunks) {
-    knowledgeDocs.insert(0, {
-      'title': title,
-      'chunks': chunks,
-      'status': 'مفهرس (FTS5 + Vector)',
-      'version': 'v2.5-local',
-    });
-    knowledgeVersion = 'v2.5.0 (محدث محلياً)';
-    notifyListeners();
-  }
-
-  // استدعاء طبقة الأمان والفلترة الطبية + محرك RAG الهجين من خدمة الـ Backend
   Map<String, dynamic> generateReply(String q) {
     final reply = MedicalRagService.generateReply(
       query: q,
-      selectedModel: selectedModel,
       knowledgeVersion: knowledgeVersion,
     );
 
