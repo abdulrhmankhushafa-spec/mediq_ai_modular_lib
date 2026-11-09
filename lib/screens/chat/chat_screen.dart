@@ -61,23 +61,10 @@ class _ChatScreenState extends State<ChatScreen> {
     if (txt.isEmpty || _loading) return;
     _ctrl.clear();
 
-    Map<String, dynamic>? matchedPrebuilt;
-    for (final c in appController.chats) {
-      if (c['question'].toString().trim() == txt ||
-          txt.contains('فقر الدم') && c['id'] == 'anemia' ||
-          txt.contains('السكري') && c['id'] == 'diabetes' ||
-          txt.contains('التهاب المعدة') && c['id'] == 'gastritis' ||
-          txt.contains('فيتامين D') && c['id'] == 'vitamind') {
-        matchedPrebuilt = Map<String, dynamic>.from(c);
-        matchedPrebuilt['question'] = txt;
-        break;
-      }
-    }
-
     setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 650));
+    await Future.delayed(const Duration(milliseconds: 350));
 
-    final reply = matchedPrebuilt ?? await appController.generateReplyAsync(txt);
+    final reply = await appController.generateReplyAsync(txt);
     if (mounted) {
       setState(() {
         _loading = false;
@@ -567,13 +554,15 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _aiBubble(Map<String, dynamic> data, bool isDark) {
     final sections = data['sections'] as List?;
     final bullets = (data['bullets'] as List?)?.cast<String>() ?? [];
+    final followUps = (data['followUps'] as List?)?.cast<String>() ?? [];
     final isEmergency = data['isEmergency'] == true;
+    final isConversational = data['isConversational'] == true ||
+        (bullets.isEmpty && (sections == null || sections.isEmpty));
     final importantNote = data['importantNote']?.toString() ?? '';
-    final source =
-        data['source']?.toString() ?? 'المراجع الطبية المعتمدة في قاعدة المعرفة المحلية';
+    final source = data['source']?.toString() ?? '';
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(isConversational ? 14 : 18),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
@@ -589,137 +578,140 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Row(
             children: [
-              const MediqLogo(size: 30, showText: false),
+              const MediqLogo(size: 26, showText: false),
               const SizedBox(width: 8),
               Text(
                 'MEDIQ AI',
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
-                  fontSize: 13.5,
+                  fontSize: 13,
                   color: isDark ? Colors.white : const Color(0xFF0A192F),
                 ),
               ),
               const SizedBox(width: 8),
               Text(
-                data['time']?.toString() ?? '10:25 م',
+                data['time']?.toString() ?? 'الآن',
                 style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
               ),
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0096C7).withOpacity(0.10),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'معلومة موثقة',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0096C7),
+              if (!isConversational)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0096C7).withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    data['category']?.toString() ?? 'معلومة موثقة',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0096C7),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
-          const Divider(height: 22),
+          const SizedBox(height: 10),
           Text(
             data['answerIntro']?.toString() ?? '',
             style: TextStyle(
               fontSize: 14,
-              height: 1.6,
-              fontWeight: FontWeight.w700,
+              height: 1.55,
+              fontWeight: isConversational ? FontWeight.w600 : FontWeight.w700,
               color: isEmergency
                   ? Colors.redAccent
                   : (isDark ? Colors.white : const Color(0xFF1E293B)),
             ),
           ),
-          const SizedBox(height: 12),
-          if (sections != null && sections.isNotEmpty)
-            ...sections.map((sec) {
-              final mapSec = sec as Map<String, dynamic>;
-              final secItems = (mapSec['items'] as List).cast<String>();
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      mapSec['heading'].toString(),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 13.5,
-                        color: isDark
-                            ? const Color(0xFF38BDF8)
-                            : const Color(0xFF0F172A),
+          if (!isConversational) ...[
+            const SizedBox(height: 10),
+            if (sections != null && sections.isNotEmpty)
+              ...sections.map((sec) {
+                final mapSec = sec as Map<String, dynamic>;
+                final secItems = (mapSec['items'] as List).cast<String>();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        mapSec['heading'].toString(),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13.5,
+                          color: isDark
+                              ? const Color(0xFF38BDF8)
+                              : const Color(0xFF0F172A),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    ...secItems.map(
-                      (itm) => Padding(
-                        padding: const EdgeInsets.only(bottom: 5, right: 8),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '• ',
-                              style: TextStyle(
-                                color: Color(0xFF0096C7),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                itm,
+                      const SizedBox(height: 6),
+                      ...secItems.map(
+                        (itm) => Padding(
+                          padding: const EdgeInsets.only(bottom: 5, right: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '• ',
                                 style: TextStyle(
-                                  fontSize: 13.5,
-                                  height: 1.45,
-                                  color: isDark
-                                      ? Colors.white.withOpacity(0.9)
-                                      : const Color(0xFF334155),
+                                  color: Color(0xFF0096C7),
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ),
-                          ],
+                              Expanded(
+                                child: Text(
+                                  itm,
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    height: 1.45,
+                                    color: isDark
+                                        ? Colors.white.withOpacity(0.9)
+                                        : const Color(0xFF334155),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            })
-          else
-            ...bullets.map(
-              (b) => Padding(
-                padding: const EdgeInsets.only(bottom: 7, right: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 6),
-                      child: Icon(Icons.circle, color: Color(0xFF0096C7), size: 7),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        b,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          height: 1.5,
-                          color: isDark
-                              ? Colors.white.withOpacity(0.88)
-                              : const Color(0xFF334155),
+                    ],
+                  ),
+                );
+              })
+            else
+              ...bullets.map(
+                (b) => Padding(
+                  padding: const EdgeInsets.only(bottom: 7, right: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 6),
+                        child: Icon(Icons.circle, color: Color(0xFF0096C7), size: 7),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          b,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            height: 1.5,
+                            color: isDark
+                                ? Colors.white.withOpacity(0.88)
+                                : const Color(0xFF334155),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          const SizedBox(height: 10),
-          if (importantNote.isNotEmpty)
+          ],
+          if (!isConversational && importantNote.isNotEmpty) ...[
+            const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(11),
               decoration: BoxDecoration(
                 color: isEmergency
                     ? Colors.red.withOpacity(0.10)
@@ -737,106 +729,98 @@ class _ChatScreenState extends State<ChatScreen> {
                   Icon(
                     Icons.info_rounded,
                     color: isEmergency ? Colors.redAccent : const Color(0xFF0284C7),
-                    size: 18,
+                    size: 17,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          height: 1.5,
-                          color: isDark ? Colors.white : const Color(0xFF1E3A8A),
-                        ),
-                        children: [
-                          const TextSpan(
-                            text: 'مهم: ',
-                            style: TextStyle(fontWeight: FontWeight.w900),
-                          ),
-                          TextSpan(text: importantNote),
-                        ],
+                    child: Text(
+                      importantNote,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.45,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : const Color(0xFF1E3A8A),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-          if (data['footer'] != null && data['footer'].toString().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              data['footer'].toString(),
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.5,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white70 : const Color(0xFF475569),
+          ],
+          if (!isConversational && source.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.library_books_outlined, size: 13, color: Color(0xFF64748B)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'المصدر: $source',
+                      style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.library_books_outlined, size: 14, color: Color(0xFF64748B)),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'المصدر الطبي: $source',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+          if (followUps.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: followUps.map((fq) {
+                return ActionChip(
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: const Color(0xFF0077B6).withOpacity(isDark ? 0.22 : 0.08),
+                  side: BorderSide(color: const Color(0xFF0077B6).withOpacity(0.28)),
+                  label: Text(
+                    fq,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0077B6),
+                    ),
                   ),
+                  onPressed: () => _send(fq),
+                );
+              }).toList(),
+            ),
+          ],
+          if (!isConversational) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _actionBtn(
+                  icon: Icons.copy_rounded,
+                  label: 'نسخ الإجابة',
+                  onTap: () {
+                    Clipboard.setData(
+                      ClipboardData(
+                        text: '${data['answerIntro']}\n${bullets.join("\n")}',
+                      ),
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('تم نسخ الإجابة الطبية إلى الحافظة ✓')),
+                    );
+                  },
+                ),
+                _actionBtn(
+                  icon: Icons.refresh_rounded,
+                  label: 'إعادة التوليد',
+                  onTap: () => _send(data['question'].toString()),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _actionBtn(
-                icon: Icons.thumb_up_alt_outlined,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('شكراً لتقييمك الإيجابي للإجابة الطبية ✓')),
-                  );
-                },
-              ),
-              _actionBtn(
-                icon: Icons.thumb_down_alt_outlined,
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('تم تسجيل ملاحظتك لتحسين جودة الإجابات')),
-                  );
-                },
-              ),
-              _actionBtn(
-                icon: Icons.copy_rounded,
-                label: 'نسخ الإجابة',
-                onTap: () {
-                  Clipboard.setData(
-                    ClipboardData(
-                      text:
-                          '${data['answerIntro']}\n${bullets.join("\n")}\n$importantNote\n${data['footer']}',
-                    ),
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('تم نسخ الإجابة الطبية إلى الحافظة ✓')),
-                  );
-                },
-              ),
-              _actionBtn(
-                icon: Icons.refresh_rounded,
-                label: 'إعادة التوليد',
-                onTap: () => _send(data['question'].toString()),
-              ),
-            ],
-          ),
+          ],
         ],
       ),
     );
