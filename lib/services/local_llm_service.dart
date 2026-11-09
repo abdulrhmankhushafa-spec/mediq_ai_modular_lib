@@ -344,6 +344,22 @@ class LocalLlmService {
     return 291;
   }
 
+  /// إنشاء ملف نموذج GGUF تجريبي داخل ذاكرة التطبيق لاختبار آلية الربط وفحص الترويسة فوراً
+  Future<String> createDemoGgufFileForTesting() async {
+    final demoFile = File(
+        '${Directory.systemTemp.path}/qwen2.5-3b-instruct-q4_k_m.gguf');
+    final bytes = ByteData(64);
+    bytes.setUint8(0, 0x47);
+    bytes.setUint8(1, 0x47);
+    bytes.setUint8(2, 0x55);
+    bytes.setUint8(3, 0x46);
+    bytes.setUint32(4, 3, Endian.little);
+    bytes.setUint64(8, 291, Endian.little);
+    bytes.setUint64(16, 26, Endian.little);
+    await demoFile.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
+    return demoFile.path;
+  }
+
   /// إلغاء ربط ملف النموذج الحالي
   Future<void> unlinkModel() async {
     modelInfo = null;
