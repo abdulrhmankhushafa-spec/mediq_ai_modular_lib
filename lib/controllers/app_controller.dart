@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/initial_medical_data.dart';
+import '../services/local_llm_service.dart';
 import '../services/medical_rag_service.dart';
 
 /// وحدة التحكم بالحالة والبيانات (MVVM ViewModel)
@@ -21,6 +22,40 @@ class AppController extends ChangeNotifier {
   List<Map<String, dynamic>> medsList = InitialMedicalData.defaultMedsList;
   List<Map<String, String>> knowledgeDocs = InitialMedicalData.defaultKnowledgeDocs;
   final List<Map<String, dynamic>> chats = InitialMedicalData.defaultChats;
+
+  AppController() {
+    initLocalModel();
+  }
+
+  GgufModelInfo? get linkedModelInfo => LocalLlmService.instance.modelInfo;
+  bool get isModelLinked => LocalLlmService.instance.state == LocalModelState.ready && linkedModelInfo != null;
+  String get modelStatusText => LocalLlmService.instance.statusMessage;
+
+  Future<void> initLocalModel() async {
+    await LocalLlmService.instance.initialize();
+    notifyListeners();
+  }
+
+  /// اختيار ملف النموذج (.gguf) من أي مجلد داخل الهاتف
+  Future<Map<String, dynamic>> pickModelFromPhone() async {
+    notifyListeners();
+    final res = await LocalLlmService.instance.pickModelFromPhoneStorage();
+    notifyListeners();
+    return res;
+  }
+
+  /// ربط النموذج عبر مسار مكتوب يدوياً على الهاتف (مثل /storage/emulated/0/Download/model.gguf)
+  Future<bool> linkModelByManualPath(String path) async {
+    final ok = await LocalLlmService.instance.loadModelFromPath(path.trim(), saveToPrefs: true);
+    notifyListeners();
+    return ok;
+  }
+
+  /// إلغاء ربط ملف النموذج الحالي
+  Future<void> unlinkCurrentModel() async {
+    await LocalLlmService.instance.unlinkModel();
+    notifyListeners();
+  }
 
   double get fontScale {
     switch (fontSizeLabel) {
@@ -111,6 +146,19 @@ class AppController extends ChangeNotifier {
   void toggleMed(int index) {
     medsList[index]['status'] = !medsList[index]['status'];
     notifyListeners();
+  }
+
+  Future<Map<String, dynamic>> generateReplyAsync(String q) async {
+    final reply = await MedicalRagService.generateReplyAsync(
+      query: q,
+      knowledgeVersion: knowledgeVersion,
+    );
+
+    if (saveChats) {
+      chats.insert(0, reply);
+      notifyListeners();
+    }
+    return reply;
   }
 
   Map<String, dynamic> generateReply(String q) {

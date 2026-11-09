@@ -77,7 +77,7 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _loading = true);
     await Future.delayed(const Duration(milliseconds: 650));
 
-    final reply = matchedPrebuilt ?? appController.generateReply(txt);
+    final reply = matchedPrebuilt ?? await appController.generateReplyAsync(txt);
     if (mounted) {
       setState(() {
         _loading = false;
@@ -180,6 +180,32 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'اختيار ملف النموذج (.gguf) من الهاتف للتجربة',
+            onPressed: () async {
+              final res = await appController.pickModelFromPhone();
+              if (mounted) {
+                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(res['message']?.toString() ?? ''),
+                    backgroundColor: res['success'] == true
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFDC2626),
+                  ),
+                );
+              }
+            },
+            icon: Icon(
+              appController.isModelLinked
+                  ? Icons.memory_rounded
+                  : Icons.folder_open_rounded,
+              size: 20,
+              color: appController.isModelLinked
+                  ? const Color(0xFF10B981)
+                  : const Color(0xFF0077B6),
+            ),
+          ),
           if (!showWelcome)
             IconButton(
               tooltip: 'بدء محادثة جديدة',
