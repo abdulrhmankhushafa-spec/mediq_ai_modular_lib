@@ -1,20 +1,16 @@
 import 'dart:math' as math;
 
 /// خدمة قاعدة المعرفة الطبية المحلية والبحث الهجين (Hybrid Search: Lexical FTS5 + Semantic Vectors + RRF)
-/// تطبق البنية الموصوفة في الفصل الثالث (جدول 3.1، جدول 3.2، وقسم 3.8.3 ص 42).
 class LocalKnowledgeDbService {
   static final LocalKnowledgeDbService instance = LocalKnowledgeDbService._internal();
   LocalKnowledgeDbService._internal();
 
-  /// المقاطع المعرفية الطبية الموثقة (Semantic Chunks) المستخلصة من:
-  /// 1. الدليل العلاجي الوطني وأدلة الرعاية الصحية الأولية - وزارة الصحة العامة والسكان (اليمن)
-  /// 2. الأدلة الإرشادية السريرية والتثقيف الصحي المجتمعي - منظمة الصحة العالمية (WHO EMRO)
   static final List<Map<String, dynamic>> _knowledgeChunks = [
     {
       'id': 'chunk_hypertension',
       'category': 'القلب والأوعية الدموية',
       'title': 'أعراض ارتفاع ضغط الدم والوقاية منه',
-      'keywords': ['ضغط الدم', 'ارتفاع الضغط', 'صداع', 'دوخة', 'القاتل الصامت', 'hypertension', 'blood pressure'],
+      'keywords': ['ضغط الدم', 'ارتفاع الضغط', 'ضغط', 'القاتل الصامت', 'hypertension', 'blood pressure'],
       'source': 'الأدلة الإرشادية السريرية للأمراض غير السارية - منظمة الصحة العالمية (WHO EMRO) والدليل العلاجي الوطني',
       'version': '2026.1',
       'answerIntro': 'ارتفاع ضغط الدم (Hypertension) هو حالة طبية مزمنة يرتفع فيها ضغط الدم في الشرايين، وغالباً ما يُسمى "القاتل الصامت" لأنه قد لا يُظهر أعراضاً واضحة في مراحله المبكرة:',
@@ -64,14 +60,14 @@ class LocalKnowledgeDbService {
     {
       'id': 'chunk_gastritis',
       'category': 'الجهاز الهضمي',
-      'title': 'التهاب المعدة وجرثومة المعدة (H. pylori)',
-      'keywords': ['التهاب المعدة', 'حموضة', 'حرقان', 'جرثومة المعدة', 'معدة', 'قرحة', 'gastritis', 'pylori'],
+      'title': 'التهاب المعدة وجرثومة المعدة والقولون',
+      'keywords': ['التهاب المعدة', 'حموضة', 'حرقان', 'جرثومة المعدة', 'معدة', 'قرحة', 'قولون', 'انتفاخ', 'بطن', 'إسهال', 'إمساك', 'gastritis', 'pylori', 'ibs'],
       'source': 'الدليل العلاجي الوطني وأدلة الرعاية الصحية الأولية - وزارة الصحة العامة والسكان',
       'version': '2026.1',
-      'answerIntro': 'التهاب المعدة (Gastritis) هو تهيج أو التهاب في البطانة الداخلية للمعدة، وقد يكون حاداً أو مزمناً نتيجة عدة عوامل:',
+      'answerIntro': 'اضطرابات الجهاز الهضمي والتهاب المعدة (Gastritis) تحدث نتيجة تهيج بطانة المعدة أو الأمعاء بفعل عدة عوامل:',
       'bullets': [
         'الأسباب الشائعة: العدوى ببكتيريا الملزونية البوابية (H. pylori)، أو الإفراط في تناول المسكنات المضادة للالتهاب (NSAIDs مثل الإيبوبروفين).',
-        'الأعراض الرئيسية: ألم أو حرقان في الجزء العلوي من البطن، غثيان، انتفاخ، وشعور بالامتلاء السريع بعد الأكل.',
+        'الأعراض الرئيسية: ألم أو حرقان في الجزء العلوي من البطن، غثيان، انتفاخ وغازات، وشعور بالامتلاء السريع بعد الأكل.',
         'الإرشادات الوقائية: تقسيم الوجبات إلى وجبات صغيرة متكررة، تجنب الأطعمة الحارة والدهنية، والامتناع عن التدخين والمسكنات على معدة فارغة.',
         'الفحوصات الشائعة: فحص جرثومة المعدة عبر البراز (Stool Antigen) أو اختبار النفس (Urea Breath Test).',
       ],
@@ -81,8 +77,8 @@ class LocalKnowledgeDbService {
     {
       'id': 'chunk_immunity_vitd',
       'category': 'المناعة والفيتامينات',
-      'title': 'الجهاز المناعي وأهمية فيتامين D للجسم',
-      'keywords': ['فيتامين D', 'فيتامين د', 'المناعة', 'الجهاز المناعي', 'عظام', 'كالسيوم', 'vitamin d', 'immunity'],
+      'title': 'الجهاز المناعي وأهمية فيتامين D والفيتامينات للجسم',
+      'keywords': ['فيتامين D', 'فيتامين د', 'فيتامين', 'المناعة', 'الجهاز المناعي', 'عظام', 'كالسيوم', 'vitamin', 'immunity'],
       'source': 'أدلة التثقيف الصحي والتغذية السريرية المعتمدة - منظمة الصحة العالمية (WHO)',
       'version': '2026.1',
       'answerIntro': 'يعمل الجهاز المناعي كخط دفاع متكامل لحماية الجسم من الميكروبات والعدوى، ويلعب فيتامين D والعناصر الغذائية الدقيقة دوراً محورياً في دعمه:',
@@ -98,16 +94,16 @@ class LocalKnowledgeDbService {
     {
       'id': 'chunk_first_aid_syncope',
       'category': 'الإسعافات الأولية',
-      'title': 'الإسعافات الأولية لحالات الإغماء وانخفاض السكر',
-      'keywords': ['إسعافات أولية', 'اسعافات', 'إغماء', 'اغماء', 'هبوط السكر', 'انخفاض السكر', 'دوخة', 'first aid'],
+      'title': 'الإسعافات الأولية لحالات الإغماء وانخفاض السكر والحروق',
+      'keywords': ['إسعافات أولية', 'اسعافات', 'إغماء', 'اغماء', 'هبوط السكر', 'انخفاض السكر', 'دوخة', 'حروق', 'جروح', 'نزيف بسيط', 'first aid'],
       'source': 'دليل الوقاية والإسعافات الأولية المجتمعية - وزارة الصحة العامة والسكان ومنظمة الصحة العالمية',
       'version': '2026.1',
-      'answerIntro': 'الإسعاف الأولي السريع والآمن لحالات الإغماء البسيط أو هبوط السكر يساعد في استعادة التروية الدموية للدماغ ومنع المضاعفات:',
+      'answerIntro': 'الإسعاف الأولي السريع والآمن لحالات الإغماء البسيط أو هبوط السكر والإصابات المنزلية يساعد في منع المضاعفات:',
       'bullets': [
         'التحقق من الوعي والتنفس: تأكد أولاً من أن المصاب يتنفس بشكل طبيعي وأن مجرى الهواء مفتوح.',
-        'وضعية الاستلقاء: مدد المصاب على ظهره في مكان جيد التهوية وافتح الملابس الضيقة حول الرقبة، وارفع ساقيه بمقدار 30 سم لتحسين تدفق الدم للدماغ.',
+        'وضعية الاستلقاء عند الإغماء: مدد المصاب على ظهره في مكان جيد التهوية وافتح الملابس الضيقة حول الرقبة، وارفع ساقيه بمقدار 30 سم لتحسين تدفق الدم للدماغ.',
         'في حال الاشتباه بهبوط السكر (والمصاب واعٍ تماماً ويستطيع البلع): أعطه مصدراً سريعاً للسكر مثل نصف كوب عصير محلى أو ملعقة عسل أو ماء بالسكر.',
-        'تحذير سلامة هام: لا تعطِ أي سوائل أو أطعمة عن طريق الفم لشخص فاقد للوعي تجنباً لخطر الاختناق.',
+        'في الحروق السطحية البسيطة: برّد المنطقة بماء فاتر جارٍ لمدة 10-15 دقيقة وتجنب وضع الثلج المباشر أو معجون الأسنان.',
       ],
       'importantNote': 'إذا لم يستعد المصاب وعيه خلال دقيقة إلى دقيقتين، يجب وضع المصاب في وضعية الإفاقة الجانبية وطلب الإسعاف فوراً (997).',
       'footer': 'الإسعافات الأولية إجراء إسعافي مبدئي ريثما يتم تقييم الحالة من قِبل الفريق الطبي المختص.',
@@ -116,7 +112,7 @@ class LocalKnowledgeDbService {
       'id': 'chunk_checkup_labs',
       'category': 'الفحوصات والمصطلحات الطبية',
       'title': 'الفحص الدوري الشامل والمصطلحات المخبرية الشائعة',
-      'keywords': ['الفحص الدوري', 'فحوصات', 'تحاليل', 'مصطلح طبي', 'cbc', 'lipid', 'وظائف الكلى', 'وظائف الكبد'],
+      'keywords': ['الفحص الدوري', 'فحوصات', 'تحاليل', 'تحليل', 'مصطلح طبي', 'cbc', 'lipid', 'وظائف الكلى', 'وظائف الكبد', 'crp', 'esr'],
       'source': 'أدلة الرعاية الصحية الأولية والتثقيف الصحي المجتمعي',
       'version': '2026.1',
       'answerIntro': 'الفحص الطبي الدوري الشامل يتضمن حزمة من التقييمات السريرية والتحاليل المخبرية الأساسية للكشف المبكر عن الاضطرابات الصحية:',
@@ -129,11 +125,42 @@ class LocalKnowledgeDbService {
       'importantNote': 'تُقرأ نتائج التحاليل المخبرية دائماً في سياق الأعراض السريرية والعمر والجنس بواسطة الطبيب المختص.',
       'footer': 'يُنصح بإجراء الفحص الروتيني مرة واحدة سنوياً على الأقل.',
     },
+    {
+      'id': 'chunk_respiratory_flu',
+      'category': 'الجهاز التنفسي والعدوى',
+      'title': 'نزلات البرد والإنفلونزا والتهاب الحلق واللوزتين والسعال',
+      'keywords': ['برد', 'زكام', 'انفلونزا', 'إنفلونزا', 'سعال', 'كحة', 'التهاب الحلق', 'لوزتين', 'حرارة', 'حمى', 'بلغم', 'ربو', 'حساسية'],
+      'source': 'الدليل العلاجي الوطني لأمراض الجهاز التنفسي - وزارة الصحة ومنظمة الصحة العالمية (WHO)',
+      'version': '2026.1',
+      'answerIntro': 'التهابات الجهاز التنفسي العلوي (مثل نزلات البرد، الإنفلونزا، والتهاب الحلق) غالباً ما تكون فيروسية المنشأ وتتحسن بالرعاية الداعمة:',
+      'bullets': [
+        'الأعراض الشائعة: احتقان الأنف أو سيلانه، ألم الحلق عند البلع، سعال جاف أو مصحوب ببلغم، وارتفاع خفيف إلى متوسط في درجة الحرارة.',
+        'الرعاية المنزلية الآمنة: الراحة الكافية، الإكثار من السوائل الدافئة والماء، والغرغرة بماء دافئ وملح لتهدئة التهاب الحلق.',
+        'تنبيه المضادات الحيوية: المضادات الحيوية لا تعالج العدوى الفيروسية (كالزكام والإنفلونزا)، واستخدامها العشوائي يسبب مقاومة البكتيريا.',
+        'علامات تستدعي مراجعة الطبيب: استمرار الحمى لأكثر من 3 أيام، صعوبة البلع الشديدة، أو وجود صديد واضح على اللوزتين.',
+      ],
+      'importantNote': 'تجنب إعطاء الأسبرين للأطفال أو المراهقين المصابين بعدوى فيروسية، واستشر الطبيب قبل استخدام أي خافض حرارة.',
+      'footer': 'غسل اليدين بانتظام وتغطية الفم والأنف عند العطاس يقللان من انتقال العدوى التنفسية.',
+    },
+    {
+      'id': 'chunk_headache_migraine',
+      'category': 'الأعصاب والصداع',
+      'title': 'أسباب الصداع التوتري والصداع النصفي (الشقيقة)',
+      'keywords': ['صداع', 'شقيقة', 'الصداع النصفي', 'ألم الرأس', 'وجع راس', 'ارهاق', 'سهر', 'migraine', 'headache'],
+      'source': 'الأدلة الإرشادية السريرية للاضطرابات العصبية الشائعة - منظمة الصحة العالمية (WHO)',
+      'version': '2026.1',
+      'answerIntro': 'الصداع من أكثر الأعراض شيوعاً، وينقسم في معظمه إلى صداع أولي (مثل الصداع التوتري والشقيقة) أو صداع ثانوي مرتبط بأسباب أخرى:',
+      'bullets': [
+        'الصداع التوتري (Tension Headache): يظهر كألم ضاغط على جانبي الرأس أو الجبهة، ويرتبط بالإجهاد، قلة النوم، الجفاف، أو إجهاد العين أمام الشاشات.',
+        'الصداع النصفي (Migraine): ألم نابض يصيب غالباً جانباً واحداً من الرأس، وقد يصاحبه غثيان وحساسية للضوء والصوت.',
+        'أسباب ثانوية شائعة: التهاب الجيوب الأنفية، ارتفاع ضغط الدم، فقر الدم، أو ضعف النظر غير المصحح.',
+        'إرشادات الوقاية: شرب كميات كافية من الماء، تنظيم ساعات النوم، تقليل الكافيين، وأخذ فترات راحة منتظمة للعينين.',
+      ],
+      'importantNote': 'إذا كان الصداع مفاجئاً وحاداً جداً، أو مصحوباً بارتفاع الحرارة أو تيبس الرقبة أو تشوش الرؤية، تجب مراجعة الطوارئ فوراً.',
+      'footer': 'الإفراط في تناول مسكنات الصداع بشكل يومي قد يؤدي إلى ما يُعرف بـ "الصداع الارتدادي".',
+    },
   ];
 
-  /// خوارزمية البحث الهجين (Hybrid Retrieval: Lexical FTS5 + Semantic Token Overlap + Weighted RRF)
-  /// كما في الفصل الثالث (قسم 3.8.3 ص 42):
-  /// RRF_Score(d) = w_lex / (60 + rank_lex(d)) + w_sem / (60 + rank_sem(d))
   List<Map<String, dynamic>> searchHybrid(String query, {int topK = 2}) {
     final normalizedQuery = _normalizeArabic(query);
     final queryTokens = normalizedQuery
@@ -149,9 +176,10 @@ class LocalKnowledgeDbService {
       final categoryNorm = _normalizeArabic(chunk['category'].toString());
       final introNorm = _normalizeArabic(chunk['answerIntro'].toString());
       final bulletsNorm = _normalizeArabic((chunk['bullets'] as List).join(' '));
-      final keywords = (chunk['keywords'] as List).map((k) => _normalizeArabic(k.toString())).toList();
+      final keywords = (chunk['keywords'] as List)
+          .map((k) => _normalizeArabic(k.toString()))
+          .toList();
 
-      // 1. درجة المطابقة النصية المباشرة (FTS5 Lexical Score)
       double lexScore = 0.0;
       for (final kw in keywords) {
         if (normalizedQuery.contains(kw)) {
@@ -161,12 +189,14 @@ class LocalKnowledgeDbService {
       for (final token in queryTokens) {
         if (titleNorm.contains(token)) lexScore += 3.0;
         if (keywords.any((k) => k.contains(token))) lexScore += 2.5;
-        if (introNorm.contains(token) || bulletsNorm.contains(token)) lexScore += 1.0;
+        if (introNorm.contains(token) || bulletsNorm.contains(token)) {
+          lexScore += 1.0;
+        }
       }
       lexicalScores.add(MapEntry(chunk, lexScore));
 
-      // 2. درجة التقارب الدلالي (Cosine / Semantic N-gram Similarity)
-      final docText = '$titleNorm $categoryNorm ${keywords.join(" ")} $introNorm $bulletsNorm';
+      final docText =
+          '$titleNorm $categoryNorm ${keywords.join(" ")} $introNorm $bulletsNorm';
       final semScore = _computeSemanticSimilarity(normalizedQuery, docText);
       semanticScores.add(MapEntry(chunk, semScore));
     }
@@ -174,7 +204,11 @@ class LocalKnowledgeDbService {
     lexicalScores.sort((a, b) => b.value.compareTo(a.value));
     semanticScores.sort((a, b) => b.value.compareTo(a.value));
 
-    // 3. دمج الرتب التبادلي الموزون (Weighted Reciprocal Rank Fusion - RRF)
+    // إذا لم يكن هناك تطابق مباشر قوي، نعيد النتيجة فقط إذا تجاوزت الحد الأدنى
+    if (lexicalScores.first.value == 0.0 && semanticScores.first.value < 0.08) {
+      return [];
+    }
+
     const int k = 60;
     const double wLex = 0.65;
     const double wSem = 0.35;
@@ -186,7 +220,9 @@ class LocalKnowledgeDbService {
       final item = lexicalScores[rank];
       final id = item.key['id'].toString();
       chunkById[id] = item.key;
-      final bonus = item.value > 0 ? (wLex / (k + rank + 1)) + (item.value * 0.01) : 0.0;
+      final bonus = item.value > 0
+          ? (wLex / (k + rank + 1)) + (item.value * 0.01)
+          : 0.0;
       rrfScores[id] = (rrfScores[id] ?? 0.0) + bonus;
     }
 
@@ -194,7 +230,8 @@ class LocalKnowledgeDbService {
       final item = semanticScores[rank];
       final id = item.key['id'].toString();
       chunkById[id] = item.key;
-      rrfScores[id] = (rrfScores[id] ?? 0.0) + (wSem / (k + rank + 1)) + (item.value * 0.02);
+      rrfScores[id] =
+          (rrfScores[id] ?? 0.0) + (wSem / (k + rank + 1)) + (item.value * 0.02);
     }
 
     final rankedIds = rrfScores.keys.toList()
@@ -209,7 +246,7 @@ class LocalKnowledgeDbService {
         .replaceAll(RegExp(r'[أإآ]'), 'ا')
         .replaceAll('ة', 'ه')
         .replaceAll('ى', 'ي')
-        .replaceAll(RegExp(r'[\u064B-\u065F]'), '') // إزالة التشكيل
+        .replaceAll(RegExp(r'[\u064B-\u065F]'), '')
         .replaceAll(RegExp(r'[^\u0600-\u06FFa-z0-9\s]'), ' ')
         .trim();
   }
