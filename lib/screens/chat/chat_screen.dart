@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/constants/app_keys.dart';
 import '../../controllers/app_controller.dart';
+import '../../services/medical_rag_service.dart';
 import '../../widgets/mediq_logo.dart';
 import '../../widgets/info_panel.dart';
 
@@ -29,8 +31,11 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _ctrl = TextEditingController();
+  final ScrollController _scrollCtrl = ScrollController();
   final List<Map<String, dynamic>> _exchanges = [];
   bool _loading = false;
+  bool _isStreaming = false;
+  Timer? _streamTimer;
   int _charCount = 0;
 
   @override
@@ -52,35 +57,234 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _streamTimer?.cancel();
     _ctrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
-  void _send([String? preset]) async {
-    final txt = preset ?? _ctrl.text.trim();
-    if (txt.isEmpty || _loading) return;
-    _ctrl.clear();
+  /// التمرير التلقائي السلس إلى أسفل المحادثة عند إرسال رسالة أو وصول رد
+  void _scrollToBottom({bool animated = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollCtrl.hasClients) return;
+      final target = _scrollCtrl.position.maxScrollExtent;
+      if (animated) {
+        _scrollCtrl.animateTo(
+          target,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        );
+      } else {
+        _scrollCtrl.jumpTo(target);
+      }
+    });
+  }
 
-    setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 350));
-
-    final reply = await appController.generateReplyAsync(txt);
+  /// إيقاف التوليد الحي فوراً عند ضغط المستخدم على زر الإيقاف
+  void _stopGeneration() {
+    _streamTimer?.cancel();
     if (mounted) {
       setState(() {
         _loading = false;
-        _exchanges.add(reply);
+        _isStreaming = false;
       });
     }
   }
 
-  // استخلاص النصوص المطبوعة من الصور الطبية عبر OCR فقط (كما في ص 25 و 31 من الخطة)
+  void _send([String? preset]) async {
+    final txt = preset ?? _ctrl.text.trim();
+    if (txt.isEmpty || _loading || _isStreaming) return;
+    _ctrl.clear();
+
+    final sentTime = MedicalRagService.formatTimeNow();
+    final sentFullDate = MedicalRagService.formatFullDateTime();
+
+    // 1. إظهار رسالة المستخدم فوراً في المحادثة ورفع الشاشة تلقائياً
+    final pendingExchange = <String, dynamic>{
+      'id': 'pending_${DateTime.now().millisecondsSinceEpoch}',
+      'question': txt,
+      'userTime': sentTime,
+      'time': sentTime,
+      'fullDate': sentFullDate,
+      'isPendingAi': true,
+    };
+
+    setState(() {
+      _exchanges.add(pendingExchange);
+      _loading = true;
+    });
+    _scrollToBottom();
+
+    await Future.delayed(const Duration(milliseconds: 280));
+    final fullReply = await appController.generateReplyAsync(txt);
+
+    if (!mounted || !_loading) return;
+
+    // 2. بدء تأثير الكتابة الحية المتدرجة (Streaming Text Effect) مع التمرير التلقائي
+    final fullIntro = fullReply['answerIntro']?.toString() ?? '';
+    final fullBullets = (fullReply['bullets'] as List?)?.cast<String>() ?? <String>[];
+    final words = fullIntro.split(' ');
+
+    final activeReply = Map<String, dynamic>.from(fullReply);
+    activeReply['userTime'] = sentTime;
+    activeReply['isPendingAi'] = false;
+    activeReply['answerIntro'] = '';
+    activeReply['bullets'] = <String>[];
+    activeReply['showExtras'] = false;
+
+    final int targetIdx = _exchanges.length - 1;
+    setState(() {
+      _loading = false;
+      _isStreaming = true;
+      _exchanges[targetIdx] = activeReply;
+    });
+    _scrollToBottom();
+
+    int wordIndex = 0;
+    _streamTimer?.cancel();
+    _streamTimer = Timer.periodic(const Duration(milliseconds: 28), (timer) {
+      if (!mounted || !_isStreaming) {
+        timer.cancel();
+        return;
+      }
+
+      if (wordIndex < words.length) {
+        final step = (wordIndex + 2 <= words.length) ? 2 : 1;
+        wordIndex += step;
+        setState(() {
+          _exchanges[targetIdx]['answerIntro'] = words.take(wordIndex).join(' ');
+        });
+        _scrollToBottom(animated: false);
+      } else {
+        timer.cancel();
+        setState(() {
+          _exchanges[targetIdx]['answerIntro'] = fullIntro;
+          _exchanges[targetIdx]['bullets'] = fullBullets;
+          _exchanges[targetIdx]['showExtras'] = true;
+          _isStreaming = false;
+        });
+        _scrollToBottom();
+      }
+    });
+  }
+
+  /// نافذة قارئ ومفسّر التقارير والتحاليل الطبية الذكي (OCR & Lab Analyzer)
   void _scanMedicalTextOcr() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'قارئ النصوص الطبية (OCR): مخصص لاستخلاص النصوص المطبوعة من التقارير والوصفات لتحليلها في المحادثة.',
+    final TextEditingController ocrCtrl = TextEditingController(
+      text: 'تقرير مختبر طبي (OCR): Hb: 9.2 g/dL | Ferritin: 8 ng/mL | Vit D: 12 ng/mL',
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
         ),
-        duration: Duration(seconds: 3),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.document_scanner_rounded,
+                    color: Color(0xFF0077B6), size: 24),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'قارئ ومفسّر التقارير والتحاليل الطبية (OCR)',
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'اختر نموذج تقرير طبي مستخلص أو أدخل أرقام التحليل المخبري ليقوم المساعد بتفسيرها فوراً:',
+              style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ActionChip(
+                  label: const Text('تقرير فقر دم ونقص حديد (CBC)',
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    ocrCtrl.text =
+                        'تقرير مختبر طبي (OCR): Hb: 9.2 g/dL | Ferritin: 8 ng/mL | Vit D: 12 ng/mL';
+                  },
+                ),
+                ActionChip(
+                  label: const Text('تقرير سكر صائم وتراكمي (HbA1c)',
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    ocrCtrl.text =
+                        'نتيجة تحليل السكر (OCR): FBS: 148 mg/dL | HbA1c: 7.4%';
+                  },
+                ),
+                ActionChip(
+                  label: const Text('تقرير التهاب وعدوى (WBC)',
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    ocrCtrl.text =
+                        'تقرير مختبر طبي (OCR): WBC: 13.5 x10^3/uL | CRP: Positive';
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: ocrCtrl,
+              maxLines: 3,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                labelText: 'النص الطبي المستخلص من الصورة أو التقرير',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  final textToAnalyze = ocrCtrl.text.trim();
+                  Navigator.pop(ctx);
+                  if (textToAnalyze.isNotEmpty) {
+                    _send(textToAnalyze);
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0077B6),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                icon: const Icon(Icons.analytics_outlined, size: 20),
+                label: const Text(
+                  'تحليل وتفسير التقرير الطبي في المحادثة',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -197,6 +401,7 @@ class _ChatScreenState extends State<ChatScreen> {
             IconButton(
               tooltip: 'بدء محادثة جديدة',
               onPressed: () {
+                _stopGeneration();
                 setState(() => _exchanges.clear());
                 if (widget.onStartNewChat != null) widget.onStartNewChat!();
               },
@@ -227,7 +432,6 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
-          // لافتة التنويه الطبي الثابتة
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -254,12 +458,14 @@ class _ChatScreenState extends State<ChatScreen> {
             child: showWelcome
                 ? _buildWelcomeView(isDark)
                 : ListView(
-                    padding: const EdgeInsets.all(16),
+                    controller: _scrollCtrl,
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
                     children: [
                       if (hasInitialBuiltInAnswer) ...[
                         _userBubble(
                           widget.chatData['question'].toString(),
-                          widget.chatData['time']?.toString() ?? '10:24 م',
+                          widget.chatData['time']?.toString() ??
+                              MedicalRagService.formatTimeNow(),
                         ),
                         const SizedBox(height: 14),
                         _aiBubble(widget.chatData, isDark),
@@ -268,54 +474,23 @@ class _ChatScreenState extends State<ChatScreen> {
                         (ex) => Padding(
                           padding: const EdgeInsets.only(top: 18),
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               _userBubble(
                                 ex['question'].toString(),
-                                ex['time']?.toString() ?? 'الآن',
+                                ex['userTime']?.toString() ??
+                                    ex['time']?.toString() ??
+                                    MedicalRagService.formatTimeNow(),
                               ),
                               const SizedBox(height: 14),
-                              _aiBubble(ex, isDark),
+                              if (ex['isPendingAi'] == true)
+                                _loadingIndicatorCard(isDark)
+                              else
+                                _aiBubble(ex, isDark),
                             ],
                           ),
                         ),
                       ),
-                      if (_loading)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).cardColor,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
-                              ),
-                            ),
-                            child: const Row(
-                              children: [
-                                SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                    color: Color(0xFF0096C7),
-                                  ),
-                                ),
-                                SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'جاري البحث في المراجع الطبية المعتمدة وصياغة الإجابة محلياً...',
-                                    style: TextStyle(
-                                      color: Color(0xFF0096C7),
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
                     ],
                   ),
           ),
@@ -325,31 +500,67 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  Widget _loadingIndicatorCard(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.2,
+              color: Color(0xFF0096C7),
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'جاري تحليل سؤالك وصياغة التقييم الطبي محلياً...',
+              style: TextStyle(
+                color: Color(0xFF0096C7),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildWelcomeView(bool isDark) {
     final quickCards = [
       {
-        't': 'ما هي أعراض ارتفاع ضغط الدم؟',
-        'sub': 'القلب والشرايين',
-        'i': Icons.favorite_border_rounded,
+        't': 'ما هي أنواع المغص؟',
+        'sub': 'البطن والجهاز الهضمي',
+        'i': Icons.medical_information_outlined,
         'c': 0xFF0077B6
       },
       {
-        't': 'كيف يعمل الجهاز المناعي؟',
-        'sub': 'المناعة والوقاية',
-        'i': Icons.shield_outlined,
+        't': 'وجع في الراس',
+        'sub': 'تقييم الصداع والشقيقة',
+        'i': Icons.psychology_outlined,
         'c': 0xFF0096C7
       },
       {
-        't': 'ما فائدة فيتامين D للجسم؟',
-        'sub': 'الفيتامينات',
-        'i': Icons.medication_outlined,
-        'c': 0xFF10B981
-      },
-      {
-        't': 'ما هي أعراض فقر الدم؟',
-        'sub': 'أمراض الدم (الأنيميا)',
+        't': 'ما هي الأطعمة التي ترفع الحديد بسرعة؟',
+        'sub': 'فقر الدم والتغذية',
         'i': Icons.bloodtype_outlined,
         'c': 0xFFE11D48
+      },
+      {
+        't': 'ما الفرق بين السكر الصائم والتراكمي؟',
+        'sub': 'السكري والتحاليل',
+        'i': Icons.biotech_outlined,
+        'c': 0xFF10B981
       },
     ];
 
@@ -380,9 +591,9 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'مساعدك الطبي الذكي',
+              'مساعدك الطبي الذكي • يفهم اللهجات ويعمل بدون إنترنت',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 12.5,
                 color: Color(0xFF64748B),
                 fontWeight: FontWeight.w600,
               ),
@@ -481,8 +692,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           color: const Color(0xFF0077B6),
                         ),
                         label: Text(
-                          c['title'].toString(),
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          '${c['title']} (${c['time'] ?? ''})',
+                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
                         ),
                         onPressed: () {
                           if (widget.onSelectChatFromHistory != null) {
@@ -531,7 +742,11 @@ class _ChatScreenState extends State<ChatScreen> {
               children: [
                 Text(
                   time,
-                  style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: Color(0xFF475569),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -556,10 +771,13 @@ class _ChatScreenState extends State<ChatScreen> {
     final bullets = (data['bullets'] as List?)?.cast<String>() ?? [];
     final followUps = (data['followUps'] as List?)?.cast<String>() ?? [];
     final isEmergency = data['isEmergency'] == true;
+    final showExtras = data['showExtras'] != false;
     final isConversational = data['isConversational'] == true ||
         (bullets.isEmpty && (sections == null || sections.isEmpty));
     final importantNote = data['importantNote']?.toString() ?? '';
     final source = data['source']?.toString() ?? '';
+    final msgTime = data['time']?.toString() ?? MedicalRagService.formatTimeNow();
+    final msgDate = data['fullDate']?.toString() ?? msgTime;
 
     return Container(
       padding: EdgeInsets.all(isConversational ? 14 : 18),
@@ -590,8 +808,8 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                data['time']?.toString() ?? 'الآن',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                msgDate,
+                style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
               ),
               const Spacer(),
               if (!isConversational)
@@ -602,7 +820,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    data['category']?.toString() ?? 'معلومة موثقة',
+                    data['category']?.toString() ?? 'تقييم سريري',
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -624,7 +842,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   : (isDark ? Colors.white : const Color(0xFF1E293B)),
             ),
           ),
-          if (!isConversational) ...[
+          if (!isConversational && showExtras) ...[
             const SizedBox(height: 10),
             if (sections != null && sections.isNotEmpty)
               ...sections.map((sec) {
@@ -708,7 +926,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
           ],
-          if (!isConversational && importantNote.isNotEmpty) ...[
+          if (!isConversational && showExtras && importantNote.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(11),
@@ -747,30 +965,17 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ],
-          if (!isConversational && source.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.white.withOpacity(0.04) : const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.library_books_outlined, size: 13, color: Color(0xFF64748B)),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'المصدر: $source',
-                      style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
-                    ),
-                  ),
-                ],
+          if (showExtras && followUps.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'أسئلة متابعة مقترحة لتفصيل حالتك:',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF64748B),
               ),
             ),
-          ],
-          if (followUps.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             Wrap(
               spacing: 6,
               runSpacing: 6,
@@ -792,31 +997,35 @@ class _ChatScreenState extends State<ChatScreen> {
               }).toList(),
             ),
           ],
-          if (!isConversational) ...[
+          if (!isConversational && showExtras) ...[
             const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            Row(
               children: [
+                if (source.isNotEmpty)
+                  Expanded(
+                    child: Text(
+                      '📖 $source',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+                    ),
+                  ),
+                const SizedBox(width: 8),
                 _actionBtn(
                   icon: Icons.copy_rounded,
-                  label: 'نسخ الإجابة',
+                  label: 'نسخ التقرير',
                   onTap: () {
-                    Clipboard.setData(
-                      ClipboardData(
-                        text: '${data['answerIntro']}\n${bullets.join("\n")}',
-                      ),
-                    );
+                    final report = '📋 استشارة طبية - MEDIQ AI\n'
+                        'التاريخ والوقت: $msgDate\n'
+                        'السؤال: ${data['question']}\n\n'
+                        '${data['answerIntro']}\n'
+                        '${bullets.map((b) => "• $b").join("\n")}\n'
+                        '${importantNote.isNotEmpty ? "\nتنويه: $importantNote" : ""}';
+                    Clipboard.setData(ClipboardData(text: report));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('تم نسخ الإجابة الطبية إلى الحافظة ✓')),
+                      const SnackBar(content: Text('تم نسخ التقرير الطبي المنسق إلى الحافظة ✓')),
                     );
                   },
-                ),
-                _actionBtn(
-                  icon: Icons.refresh_rounded,
-                  label: 'إعادة التوليد',
-                  onTap: () => _send(data['question'].toString()),
                 ),
               ],
             ),
@@ -835,7 +1044,7 @@ class _ChatScreenState extends State<ChatScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           border: Border.all(color: const Color(0xFFCBD5E1).withOpacity(0.6)),
           borderRadius: BorderRadius.circular(10),
@@ -843,12 +1052,12 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 15, color: const Color(0xFF64748B)),
+            Icon(icon, size: 14, color: const Color(0xFF64748B)),
             if (label.isNotEmpty) ...[
-              const SizedBox(width: 6),
+              const SizedBox(width: 5),
               Text(
                 label,
-                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
               ),
             ],
           ],
@@ -857,8 +1066,9 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // شريط الإدخال السفلي (يقتصر على إدخال النص أو قراءة نص طبي مطبوع OCR دون رفع ملفات خارجية لقاعدة المعرفة)
   Widget _inputBar(bool isDark) {
+    final isBusy = _loading || _isStreaming;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
       decoration: BoxDecoration(
@@ -891,7 +1101,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       minLines: 1,
                       onSubmitted: (_) => _send(),
                       decoration: const InputDecoration(
-                        hintText: 'اكتب سؤالك الطبي هنا...',
+                        hintText: 'اكتب سؤالك أو العرض الطبي بأي لهجة...',
                         hintStyle: TextStyle(fontSize: 13.5, color: Color(0xFF94A3B8)),
                         border: InputBorder.none,
                         isDense: true,
@@ -909,12 +1119,16 @@ class _ChatScreenState extends State<ChatScreen> {
                                 Icon(
                                   Icons.document_scanner_outlined,
                                   size: 17,
-                                  color: Color(0xFF64748B),
+                                  color: Color(0xFF0077B6),
                                 ),
                                 SizedBox(width: 4),
                                 Text(
-                                  'قراءة نص طبي من صورة (OCR)',
-                                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                  'قراءة وتفسير تحليل طبي (OCR)',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF0077B6),
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ],
                             ),
@@ -933,18 +1147,24 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             const SizedBox(width: 10),
             InkWell(
-              onTap: () => _send(),
+              onTap: isBusy ? _stopGeneration : () => _send(),
               borderRadius: BorderRadius.circular(30),
               child: Container(
                 width: 48,
                 height: 48,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF0096C7), Color(0xFF0077B6)],
+                    colors: isBusy
+                        ? [const Color(0xFFEF4444), const Color(0xFFDC2626)]
+                        : [const Color(0xFF0096C7), const Color(0xFF0077B6)],
                   ),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                child: Icon(
+                  isBusy ? Icons.stop_rounded : Icons.send_rounded,
+                  color: Colors.white,
+                  size: 21,
+                ),
               ),
             ),
           ],

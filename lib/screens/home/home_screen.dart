@@ -259,7 +259,7 @@ class HomeScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  chat['time'].toString(),
+                                  (chat['fullDate'] ?? chat['time']).toString(),
                                   style: const TextStyle(
                                     fontSize: 10.5,
                                     color: Color(0xFF94A3B8),
