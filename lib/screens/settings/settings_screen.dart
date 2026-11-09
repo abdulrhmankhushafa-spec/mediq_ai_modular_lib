@@ -32,7 +32,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _handlePickModel() async {
     if (_picking) return;
     setState(() => _picking = true);
-    final res = await appController.pickModelFromPhone();
+    final res = await appController.pickModelFromPhone(context);
     if (mounted) {
       setState(() => _picking = false);
       ScaffoldMessenger.of(context).showSnackBar(

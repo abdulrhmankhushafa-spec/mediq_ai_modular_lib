@@ -183,7 +183,7 @@ class _ChatScreenState extends State<ChatScreen> {
           IconButton(
             tooltip: 'اختيار ملف النموذج (.gguf) من الهاتف للتجربة',
             onPressed: () async {
-              final res = await appController.pickModelFromPhone();
+              final res = await appController.pickModelFromPhone(context);
               if (mounted) {
                 setState(() {});
                 ScaffoldMessenger.of(context).showSnackBar(

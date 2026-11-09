@@ -28,7 +28,9 @@ class AppController extends ChangeNotifier {
   }
 
   GgufModelInfo? get linkedModelInfo => LocalLlmService.instance.modelInfo;
-  bool get isModelLinked => LocalLlmService.instance.state == LocalModelState.ready && linkedModelInfo != null;
+  bool get isModelLinked =>
+      LocalLlmService.instance.state == LocalModelState.ready &&
+      linkedModelInfo != null;
   String get modelStatusText => LocalLlmService.instance.statusMessage;
 
   Future<void> initLocalModel() async {
@@ -36,17 +38,28 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// اختيار ملف النموذج (.gguf) من أي مجلد داخل الهاتف
-  Future<Map<String, dynamic>> pickModelFromPhone() async {
-    notifyListeners();
-    final res = await LocalLlmService.instance.pickModelFromPhoneStorage();
+  /// اختيار ملف النموذج (.gguf) من أي مجلد داخل الهاتف (بدون أي حزم خارجية)
+  Future<Map<String, dynamic>> pickModelFromPhone(BuildContext context) async {
+    final res = await LocalLlmService.instance
+        .pickModelWithNativeOrInAppBrowser(context);
     notifyListeners();
     return res;
   }
 
-  /// ربط النموذج عبر مسار مكتوب يدوياً على الهاتف (مثل /storage/emulated/0/Download/model.gguf)
+  /// ربط النموذج عبر مسار مكتوب يدوياً على الهاتف
   Future<bool> linkModelByManualPath(String path) async {
-    final ok = await LocalLlmService.instance.loadModelFromPath(path.trim(), saveToPrefs: true);
+    final ok = await LocalLlmService.instance
+        .loadModelFromPath(path.trim(), saveConfig: true);
+    notifyListeners();
+    return ok;
+  }
+
+  /// إنشاء وربط ملف GGUF تجريبي لاختبار فحص الترويسة والمحادثة فوراً
+  Future<bool> linkDemoGgufModel() async {
+    final path =
+        await LocalLlmService.instance.createDemoGgufFileForTesting();
+    final ok =
+        await LocalLlmService.instance.loadModelFromPath(path, saveConfig: true);
     notifyListeners();
     return ok;
   }
@@ -139,7 +152,8 @@ class AppController extends ChangeNotifier {
   }
 
   void addVital(String type, String val, String status) {
-    vitalsLog.insert(0, {'date': 'الآن', 'type': type, 'val': val, 'status': status});
+    vitalsLog.insert(
+        0, {'date': 'الآن', 'type': type, 'val': val, 'status': status});
     notifyListeners();
   }
 
